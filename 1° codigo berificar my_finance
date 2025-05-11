@@ -1,0 +1,400 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'My Finance',
+      theme: ThemeData(primarySwatch: Colors.teal),
+      home: const MyHomePage(),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key});
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  double ingresos = 0.00;
+  double gastos = 0.00;
+  double balance = 0.00;
+  List<Map<String, dynamic>> registroOperaciones = [];
+
+  final TextEditingController _montoController = TextEditingController();
+  final TextEditingController _nombreController = TextEditingController();
+  String _tipoTransaccion = '';
+
+  void _agregarTransaccion() {
+    if (_montoController.text.isNotEmpty &&
+        _tipoTransaccion.isNotEmpty &&
+        _nombreController.text.isNotEmpty) {
+      double monto = double.tryParse(_montoController.text) ?? 0.00;
+      if (_tipoTransaccion == 'Ingreso') {
+        setState(() {
+          ingresos += monto;
+          balance += monto;
+          registroOperaciones.add({
+            'tipo': 'Ingreso',
+            'nombre': _nombreController.text,
+            'cantidad': monto,
+            'fecha': DateTime.now(),
+          });
+        });
+      } else if (_tipoTransaccion == 'Gasto') {
+        setState(() {
+          gastos += monto;
+          balance -= monto;
+          registroOperaciones.add({
+            'tipo': 'Gasto',
+            'nombre': _nombreController.text,
+            'cantidad': monto,
+            'fecha': DateTime.now(),
+          });
+        });
+      }
+      _montoController.clear();
+      _nombreController.clear();
+      _tipoTransaccion = '';
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Por favor, ingrese el monto, el nombre y seleccione el tipo de transacción.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _mostrarRegistro() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Registro de Operaciones'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: registroOperaciones.length,
+              itemBuilder: (context, index) {
+                final operacion = registroOperaciones[index];
+                final fechaFormateada =
+                    DateFormat('yyyy-MM-dd – kk:mm').format(operacion['fecha']);
+                Color colorTexto;
+                if (operacion['tipo'] == 'Ingreso') {
+                  colorTexto = Colors.green;
+                } else if (operacion['tipo'] == 'Gasto') {
+                  colorTexto = Colors.red;
+                } else {
+                  colorTexto = Colors.black;
+                }
+                return ListTile(
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${operacion['tipo']}: ${operacion['nombre']}',
+                        style: TextStyle(color: colorTexto),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          _eliminarOperacion(index);
+                        },
+                        child: const Icon(
+                          Icons.delete_outline,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    'Cantidad: \$${operacion['cantidad'].toStringAsFixed(2)} - $fechaFormateada',
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cerrar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _eliminarOperacion(int index) {
+    setState(() {
+      final operacionEliminada = registroOperaciones[index];
+      if (operacionEliminada['tipo'] == 'Ingreso') {
+        ingresos -= operacionEliminada['cantidad'];
+        balance -= operacionEliminada['cantidad'];
+      } else if (operacionEliminada['tipo'] == 'Gasto') {
+        gastos -= operacionEliminada['cantidad'];
+        balance += operacionEliminada['cantidad'];
+      }
+      registroOperaciones.removeAt(index);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Operación eliminada'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _borrarIngresos() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar'),
+          content: const Text('¿Está seguro de que desea borrar todos los ingresos?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+                setState(() {
+                  balance -= ingresos;
+                  ingresos = 0.00;
+                  registroOperaciones
+                      .removeWhere((item) => item['tipo'] == 'Ingreso');
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Ingresos borrados'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Text('Sí'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _borrarGastos() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar'),
+          content: const Text('¿Está seguro de que desea borrar todos los gastos?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+                setState(() {
+                  balance += gastos;
+                  gastos = 0.00;
+                  registroOperaciones
+                      .removeWhere((item) => item['tipo'] == 'Gasto');
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Gastos borrados'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Text('Sí'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCard(String title, String value, Color color, double balanceValue) {
+    Color valueColor = Colors.black;
+    if (title == 'Balance' && balanceValue < 0) {
+      valueColor = Colors.orange;
+    }
+
+    return Card(
+      color: color,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: SizedBox(
+          width: 76,
+          height: 56,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              Text(
+                value,
+                style: TextStyle(fontSize: 16, color: valueColor),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Center(
+          child: Text('My Finance', style: TextStyle(color: Colors.red)),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const Text(
+              'Tu flujo, tu control, tu finanza',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.black54,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: <Widget>[
+                  SizedBox(
+                    width: 100,
+                    height: 80,
+                    child: _buildCard(
+                      'Ingresos',
+                      '\$${ingresos.toStringAsFixed(2)}',
+                      Colors.lightGreen.shade100,
+                      balance,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 100,
+                    height: 80,
+                    child: _buildCard(
+                      'Gastos',
+                      '\$${gastos.toStringAsFixed(2)}',
+                      Colors.red.shade100,
+                      balance,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 100,
+                    height: 80,
+                    child: _buildCard(
+                      'Balance',
+                      '\$${balance.toStringAsFixed(2)}',
+                      Colors.lightBlue.shade100,
+                      balance,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _nombreController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre de la transacción',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _montoController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Monto de la transacción',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: <Widget>[
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _tipoTransaccion = 'Ingreso';
+                    });
+                  },
+                  child: const Text('Ingreso'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _tipoTransaccion = 'Gasto';
+                    });
+                  },
+                  child: const Text('Gasto'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _agregarTransaccion,
+              child: const Text('Agregar Transacción'),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _mostrarRegistro,
+              child: const Text('Mostrar Registro'),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                ElevatedButton(
+                  onPressed: _borrarIngresos,
+                  child: const Text('Borrar Ingresos'),
+                ),
+                ElevatedButton(
+                  onPressed: _borrarGastos,
+                  child: const Text('Borrar Gastos'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
